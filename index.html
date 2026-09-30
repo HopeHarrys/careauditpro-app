@@ -451,7 +451,8 @@
     color: #b7cdd3;
     margin: 0 0 24px;
   }
-  #lockScreen a.lock-btn {
+  #lockScreen a.lock-btn,
+  #lockScreen button.lock-btn {
     display: inline-block;
     width: 100%;
     box-sizing: border-box;
@@ -463,7 +464,11 @@
     font-size: 13.5px;
     text-decoration: none;
     margin-bottom: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
   }
+  #lockScreen button.lock-btn:disabled { opacity: 0.6; cursor: default; }
   #lockScreen a.lock-link {
     display: block;
     font-size: 12.5px;
@@ -520,6 +525,7 @@
     </form>
     <div class="lock-error" id="lockError" style="display:none;"></div>
     <a class="lock-btn" id="lockActivateBtn" href="#" style="display:none;">🟢 ACTIVATE COMPLIANCE SITE LICENSE (£49/mo)</a>
+    <button type="button" class="lock-btn" id="lockResendBtn" style="display:none;">Resend verification email</button>
     <a class="lock-link" href="mailto:compliance@careauditpro.co.uk">compliance@careauditpro.co.uk</a>
   </div>
 </div>
@@ -612,12 +618,16 @@
   var MASTER_PASSKEY = "CAP50"; // admin/support override — keep private, not for customers
   var CHECK_ACCESS_URL = "/.netlify/functions/check-access";
   var SESSION_EMAIL_URL = "/.netlify/functions/get-session-email";
+  var SEND_VERIFICATION_URL = "/.netlify/functions/send-verification";
+  var VERIFY_EMAIL_URL = "/.netlify/functions/verify-email";
   var CACHE_KEY = "cap_access_cache_v1";
   var CACHE_TTL_SECONDS = 12 * 60 * 60; // re-verify with the server at least twice a day
 
   var params = new URLSearchParams(window.location.search);
   var authParam = params.get("auth") || "";
   var sessionIdParam = params.get("session_id") || "";
+  var verifyTokenParam = params.get("verify") || "";
+  var verifyEmailParam = params.get("email") || "";
 
   var lockScreenEl = document.getElementById('lockScreen');
   var lockTitleEl = document.getElementById('lockTitle');
@@ -627,6 +637,7 @@
   var lockSubmitBtnEl = document.getElementById('lockSubmitBtn');
   var lockErrorEl = document.getElementById('lockError');
   var lockActivateBtnEl = document.getElementById('lockActivateBtn');
+  var lockResendBtnEl = document.getElementById('lockResendBtn');
 
   function showLock(opts) {
     document.body.classList.add('app-locked');
@@ -638,6 +649,16 @@
       lockActivateBtnEl.href = STRIPE_PAYMENT_LINK;
     } else {
       lockActivateBtnEl.style.display = 'none';
+    }
+    if (opts.showResend) {
+      lockResendBtnEl.style.display = 'inline-block';
+      lockResendBtnEl.disabled = false;
+      lockResendBtnEl.textContent = 'Resend verification email';
+      lockResendBtnEl.onclick = function () {
+        sendVerificationEmail(opts.resendEmail, lockResendBtnEl);
+      };
+    } else {
+      lockResendBtnEl.style.display = 'none';
     }
   }
 
@@ -703,6 +724,14 @@
             message: "We couldn't find an active trial or subscription for that email. Start your free 14-day trial or activate your site license below.",
             showActivate: true
           });
+        } else if (data.reason === 'unverified') {
+          showLock({
+            title: 'Confirm Your Email',
+            message: "We sent a confirmation link to " + email + ". Click it to unlock the app — didn't get it?",
+            showResend: true,
+            resendEmail: email
+          });
+          sendVerificationEmail(email, null);
         } else {
           lockErrorEl.style.display = 'block';
           lockErrorEl.textContent = 'Please enter a valid work email address and try again.';
@@ -713,6 +742,74 @@
         lockSubmitBtnEl.textContent = 'Check Access';
         lockErrorEl.style.display = 'block';
         lockErrorEl.textContent = "We couldn't reach the licensing server. Check your connection and try again.";
+      });
+  }
+
+  // Sends (or re-sends) the confirmation link. Passing a button disables it
+  // while the request is in flight so people can't spam-click "resend".
+  function sendVerificationEmail(email, buttonEl) {
+    if (buttonEl) {
+      buttonEl.disabled = true;
+      buttonEl.textContent = 'Sending…';
+    }
+    fetch(SEND_VERIFICATION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function () {
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = 'Email sent — resend';
+        }
+      })
+      .catch(function () {
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = 'Resend verification email';
+        }
+      });
+  }
+
+  // Called when the app loads with ?verify=TOKEN&email=... from a clicked
+  // confirmation link.
+  function handleVerifyLink(token, email) {
+    showLock({
+      title: 'Confirming Your Email',
+      message: 'One moment while we confirm your email address…',
+      showActivate: false
+    });
+    if (lockFormEl) lockFormEl.style.display = 'none';
+
+    fetch(VERIFY_EMAIL_URL + '?token=' + encodeURIComponent(token) + '&email=' + encodeURIComponent(email))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (lockFormEl) lockFormEl.style.display = '';
+        if (data.verified) {
+          checkAccess(email);
+        } else if (data.reason === 'token_expired') {
+          showLock({
+            title: 'Link Expired',
+            message: 'That confirmation link has expired. Request a new one below.',
+            showResend: true,
+            resendEmail: email
+          });
+        } else {
+          showLock({
+            title: 'Link Not Valid',
+            message: "That confirmation link isn't valid or has already been used. Enter your email below to try again.",
+            showActivate: false
+          });
+        }
+      })
+      .catch(function () {
+        if (lockFormEl) lockFormEl.style.display = '';
+        showLock({
+          title: 'Verify Your Access',
+          message: 'Enter the work email you used to start your CareAuditPro trial or subscription.',
+          showActivate: false
+        });
       });
   }
 
@@ -736,6 +833,19 @@
         if (data.access) {
           writeAccessCache(email, data);
           unlock();
+          return;
+        }
+        if (data.reason === 'unverified') {
+          // Subscription is confirmed — just waiting on the customer to click
+          // the confirmation link, so stop retrying and send that link now.
+          if (lockEmailInputEl) lockEmailInputEl.value = email;
+          showLock({
+            title: 'Confirm Your Email',
+            message: "We sent a confirmation link to " + email + ". Click it to unlock the app — didn't get it?",
+            showResend: true,
+            resendEmail: email
+          });
+          sendVerificationEmail(email, null);
           return;
         }
         if (attemptsLeft > 0) {
@@ -1055,6 +1165,13 @@
   if (authParam === MASTER_PASSKEY) {
     // Admin/support override: permanent unlock, no server round-trip.
     unlock();
+  } else if (verifyTokenParam && verifyEmailParam) {
+    // Customer clicked the confirmation link from their email.
+    handleVerifyLink(verifyTokenParam, verifyEmailParam);
+    if (window.history && window.history.replaceState) {
+      var cleanVerifyUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanVerifyUrl);
+    }
   } else if (sessionIdParam) {
     // Just redirected back from a Stripe Checkout session — look up the email
     // that was used and verify access automatically, no typing required.
