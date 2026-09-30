@@ -125,6 +125,11 @@ exports.handler = async (event) => {
           '<p>Please confirm this is your email address by clicking the link below:</p>' +
           '<p><a href="' + verifyLink + '">Confirm my email</a></p>' +
           '<p>This link expires in 24 hours. If you did not request this, you can ignore this email.</p>',
+        text:
+          'Thanks for starting your CareAuditPro trial.\n\n' +
+          'Please confirm this is your email address by opening this link:\n' +
+          verifyLink + '\n\n' +
+          'This link expires in 24 hours. If you did not request this, you can ignore this email.',
       }),
     });
 
