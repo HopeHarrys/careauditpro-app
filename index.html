@@ -617,7 +617,7 @@
 
   var params = new URLSearchParams(window.location.search);
   var authParam = params.get("auth") || "";
-
+  var sessionIdParam = params.get("session_id") || "";
   var lockScreenEl = document.getElementById('lockScreen');
   var lockTitleEl = document.getElementById('lockTitle');
   var lockMsgEl = document.getElementById('lockMsg');
