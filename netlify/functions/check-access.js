@@ -13,6 +13,19 @@ const { getStore } = require('@netlify/blobs');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ACTIVE_STATUSES = ['trialing', 'active'];
 
+// Netlify is supposed to auto-configure Blobs for functions running on its own
+// infrastructure, but that auto-detection doesn't always kick in. Falling back
+// to explicit siteID/token (set as NETLIFY_BLOBS_SITE_ID / NETLIFY_BLOBS_TOKEN
+// in Netlify's environment variables) makes this work regardless.
+function getSubscribersStore() {
+  const siteID = process.env.NETLIFY_BLOBS_SITE_ID;
+  const token = process.env.NETLIFY_BLOBS_TOKEN;
+  if (siteID && token) {
+    return getStore({ name: 'subscribers', siteID, token });
+  }
+  return getStore('subscribers');
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Content-Type': 'application/json',
@@ -34,7 +47,7 @@ exports.handler = async (event) => {
 
   let record;
   try {
-    const store = getStore('subscribers');
+    const store = getSubscribersStore();
     record = await store.get(email, { type: 'json' });
   } catch (err) {
     console.error('Error reading subscriber store:', err);
