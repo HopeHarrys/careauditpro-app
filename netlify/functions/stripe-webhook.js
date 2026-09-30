@@ -78,6 +78,17 @@ exports.handler = async (event) => {
     }
 
     const key = email.toLowerCase().trim();
+
+    // Preserve email-verification state across updates — Stripe fires this
+    // webhook again on every subscription change, and a plain overwrite would
+    // otherwise silently reset emailVerified back to false each time.
+    let existing = null;
+    try {
+      existing = await store.get(key, { type: 'json' });
+    } catch (err) {
+      console.error('Could not read existing subscriber record for', key, err.message);
+    }
+
     const record = {
       email: key,
       customerId: subscription.customer,
@@ -87,6 +98,9 @@ exports.handler = async (event) => {
       trialEnd: subscription.trial_end || null,
       cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
       updatedAt: Math.floor(Date.now() / 1000),
+      emailVerified: (existing && existing.emailVerified) || false,
+      verificationToken: existing ? existing.verificationToken : null,
+      verificationSentAt: existing ? existing.verificationSentAt : null,
     };
 
     await store.setJSON(key, record);
