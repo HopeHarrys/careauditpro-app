@@ -76,6 +76,18 @@ exports.handler = async (event) => {
     };
   }
 
+  // Require the email to have been confirmed (see send-verification.js /
+  // verify-email.js) before granting access, even if the Stripe subscription
+  // itself is trialing/active. Stops someone unlocking the app with an email
+  // address that isn't actually theirs.
+  if (!record.emailVerified) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ access: false, reason: 'unverified', status: record.status }),
+    };
+  }
+
   return {
     statusCode: 200,
     headers,
