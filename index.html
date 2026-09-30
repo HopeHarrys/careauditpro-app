@@ -618,6 +618,7 @@
   var params = new URLSearchParams(window.location.search);
   var authParam = params.get("auth") || "";
   var sessionIdParam = params.get("session_id") || "";
+
   var lockScreenEl = document.getElementById('lockScreen');
   var lockTitleEl = document.getElementById('lockTitle');
   var lockMsgEl = document.getElementById('lockMsg');
@@ -722,6 +723,80 @@
       if (!email) return;
       checkAccess(email);
     });
+  }
+
+  // Called only right after Stripe redirects back from checkout. The webhook
+  // that records the new subscriber can take a few seconds to arrive, so this
+  // retries quietly a few times before giving up and falling back to the
+  // ordinary "type your email" screen.
+  function checkAccessAfterCheckout(email, attemptsLeft) {
+    fetch(CHECK_ACCESS_URL + '?email=' + encodeURIComponent(email))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.access) {
+          writeAccessCache(email, data);
+          unlock();
+          return;
+        }
+        if (attemptsLeft > 0) {
+          setTimeout(function () {
+            checkAccessAfterCheckout(email, attemptsLeft - 1);
+          }, 2000);
+        } else {
+          if (lockEmailInputEl) lockEmailInputEl.value = email;
+          showLock({
+            title: 'Almost there',
+            message: "Your payment went through, but we're still confirming your subscription. Please try again in a moment.",
+            showActivate: false
+          });
+        }
+      })
+      .catch(function () {
+        if (attemptsLeft > 0) {
+          setTimeout(function () {
+            checkAccessAfterCheckout(email, attemptsLeft - 1);
+          }, 2000);
+        } else {
+          if (lockEmailInputEl) lockEmailInputEl.value = email;
+          showLock({
+            title: 'Verify Your Access',
+            message: 'Enter the work email you used to start your CareAuditPro trial or subscription.',
+            showActivate: false
+          });
+        }
+      });
+  }
+
+  function handleReturnFromCheckout(sessionId) {
+    showLock({
+      title: 'Setting Up Your Account',
+      message: "Thanks! We're confirming your subscription — this only takes a moment.",
+      showActivate: false
+    });
+    if (lockFormEl) lockFormEl.style.display = 'none';
+
+    fetch(SESSION_EMAIL_URL + '?session_id=' + encodeURIComponent(sessionId))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (lockFormEl) lockFormEl.style.display = '';
+        if (data && data.email) {
+          checkAccessAfterCheckout(data.email, 4);
+        } else {
+          showLock({
+            title: 'Verify Your Access',
+            message: 'Enter the work email you used to start your CareAuditPro trial or subscription.',
+            showActivate: false
+          });
+        }
+      })
+      .catch(function () {
+        if (lockFormEl) lockFormEl.style.display = '';
+        showLock({
+          title: 'Verify Your Access',
+          message: 'Enter the work email you used to start your CareAuditPro trial or subscription.',
+          showActivate: false
+        });
+      });
   }
 
   function initApp() {
@@ -980,6 +1055,15 @@
   if (authParam === MASTER_PASSKEY) {
     // Admin/support override: permanent unlock, no server round-trip.
     unlock();
+  } else if (sessionIdParam) {
+    // Just redirected back from a Stripe Checkout session — look up the email
+    // that was used and verify access automatically, no typing required.
+    handleReturnFromCheckout(sessionIdParam);
+    // Clean the session_id out of the URL so a refresh doesn't repeat the lookup.
+    if (window.history && window.history.replaceState) {
+      var cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
   } else {
     var cachedAccess = readAccessCache();
     if (cachedAccess) {
