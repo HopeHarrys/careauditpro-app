@@ -15,6 +15,19 @@
 const Stripe = require('stripe');
 const { getStore } = require('@netlify/blobs');
 
+// Netlify is supposed to auto-configure Blobs for functions running on its own
+// infrastructure, but that auto-detection doesn't always kick in. Falling back
+// to explicit siteID/token (set as NETLIFY_BLOBS_SITE_ID / NETLIFY_BLOBS_TOKEN
+// in Netlify's environment variables) makes this work regardless.
+function getSubscribersStore() {
+  const siteID = process.env.NETLIFY_BLOBS_SITE_ID;
+  const token = process.env.NETLIFY_BLOBS_TOKEN;
+  if (siteID && token) {
+    return getStore({ name: 'subscribers', siteID, token });
+  }
+  return getStore('subscribers');
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -43,7 +56,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: `Webhook signature verification failed: ${err.message}` };
   }
 
-  const store = getStore('subscribers');
+  const store = getSubscribersStore();
 
   async function upsertFromSubscription(subscription, emailOverride) {
     let email = emailOverride;
