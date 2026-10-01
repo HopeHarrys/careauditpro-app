@@ -515,20 +515,28 @@
      so it wins over the unconditional rules it overrides. */
   @media (min-width: 1025px) and (pointer: fine) {
     header {
-      padding: 28px max(40px, calc((100% - 1200px) / 2));
+      padding: 28px max(40px, calc((100% - 1280px) / 2));
     }
     header h1 { font-size: 30px; }
 
     .stats {
-      padding: 20px max(40px, calc((100% - 1200px) / 2));
+      padding: 20px max(40px, calc((100% - 1280px) / 2));
       gap: 20px;
     }
     .stat-box { padding: 14px 10px; border-radius: 12px; }
     .stat-box .label { font-size: 12px; letter-spacing: 0.04em; }
     .stat-box .value { font-size: 26px; }
 
+    /* Centralized desktop wrapper: the whole canvas below the header (module
+       titles, the 5 module cards, and the report button) sits in a
+       1280px-max, centered column so wide monitors don't stretch it edge to
+       edge. */
     main {
-      padding: 32px max(40px, calc((100% - 1200px) / 2));
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 2rem;
+      box-sizing: border-box;
     }
 
     .home-section-label { font-size: 13px; }
@@ -546,11 +554,33 @@
       min-height: 84px;
       padding: 18px 20px;
       border-radius: 16px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .module-btn:hover {
+      cursor: pointer;
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
     }
     .module-btn .icon { width: 48px; height: 48px; font-size: 24px; }
     .module-btn .name { font-size: 17px; }
 
-    #generateBtn { max-width: 480px; margin-left: auto; margin-right: auto; margin-top: 32px; display: block; }
+    #generateBtn {
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-top: 32px;
+      display: block;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    #generateBtn.enabled {
+      background: #1e293b;
+      color: #ffffff;
+    }
+    #generateBtn.enabled:hover {
+      background: #2dd4bf;
+      color: #083344;
+      cursor: pointer;
+    }
 
     .q-card {
       display: grid;
