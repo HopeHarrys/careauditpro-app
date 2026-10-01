@@ -510,10 +510,13 @@
   /* Desktop / large-screen dashboard layout: roomier spacing, a wide
      multi-column module grid, and a horizontal row layout for each question
      (reference code + question text + pass/fail controls all in one line)
-     once there's enough width and a precise pointer. Mobile and tablet keep
-     the stacked card layout above untouched. Placed last in the stylesheet
-     so it wins over the unconditional rules it overrides. */
-  @media (min-width: 1025px) and (pointer: fine) {
+     once there's enough width. Keyed on width alone (not pointer type) so a
+     touchscreen laptop or 2-in-1 at full desktop width still gets this
+     layout instead of silently falling back to the mobile one. Mobile and
+     narrow tablets keep the stacked card layout above untouched. Placed
+     last in the stylesheet so it wins over the unconditional rules it
+     overrides. */
+  @media (min-width: 1025px) {
     header {
       padding: 28px max(40px, calc((100% - 1280px) / 2));
     }
