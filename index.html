@@ -22,7 +22,14 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #0f172a;
+    /* Matches the app's own page background (same as <main>). This used to be
+       a dark navy "desk" backdrop behind the old phone-mockup frame; now that
+       the app fills the whole screen on every device, this color should
+       never be visible — except on some mobile/tablet browsers where the
+       dynamic toolbar briefly resizes the viewport and exposes a sliver of
+       body underneath. Matching it to the page color means that sliver
+       blends in instead of showing as a stray colored line. */
+    background: #f1f5f9;
     min-height: 100vh;
     min-height: 100dvh;
     color: #334155;
