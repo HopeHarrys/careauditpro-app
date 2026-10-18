@@ -1288,7 +1288,48 @@
   } else {
     var cachedAccess = readAccessCache();
     if (cachedAccess) {
+      // Unlock immediately from cache for a fast, flicker-free return visit —
+      // but this is only ever a *guess*, so quietly re-confirm with the real
+      // server check in the background right after. Without this, a cached
+      // "access: true" from hours ago would blindly let anyone back in on
+      // this browser even if the subscription behind it has since lapsed,
+      // or — just as importantly — even though it was never re-checked
+      // against whatever email a visitor is actually trying right now.
       unlock();
+      fetch(CHECK_ACCESS_URL + '?email=' + encodeURIComponent(cachedAccess.email))
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.access) {
+            writeAccessCache(cachedAccess.email, data); // refresh the 12h window
+            return;
+          }
+          // Server trouble (e.g. expired Blobs token) is not a definite "no" - keep trusting the cache.
+          if (data.reason === 'server_error') return;
+          // No longer valid — undo the optimistic unlock and show why.
+          try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+          document.body.classList.add('app-locked');
+          lockScreenEl.style.display = 'flex';
+          if (lockFormEl) lockFormEl.style.display = '';
+          if (lockEmailInputEl) lockEmailInputEl.value = cachedAccess.email;
+          if (data.reason === 'unverified') {
+            showLock({
+              title: 'Confirm Your Email',
+              message: "We sent a confirmation link to " + cachedAccess.email + ". Click it to unlock the app — didn't get it?",
+              showResend: true,
+              resendEmail: cachedAccess.email
+            });
+          } else {
+            showLock({
+              title: 'Access Expired',
+              message: "We couldn't confirm an active trial or subscription for " + cachedAccess.email + ". Please check your email below or renew your access.",
+              showActivate: true
+            });
+          }
+        })
+        .catch(function () {
+          // Network hiccup only — keep trusting the cache rather than
+          // locking someone out over a flaky connection.
+        });
     } else {
       showLock({
         title: 'Verify Your Access',
