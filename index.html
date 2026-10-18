@@ -718,7 +718,8 @@
   // check-access.js) looks up the visitor's email against subscriber records that a
   // second function (netlify/functions/stripe-webhook.js) keeps in sync automatically
   // every time Stripe fires a subscription event. See SETUP.md for one-time configuration.
-  var STRIPE_PAYMENT_LINK = "https://buy.stripe.com/eVqfZgaoG1Y7btw2cE4c800";
+  var STRIPE_PAYMENT_LINK = "https://buy.stripe.com/eVqfZgaoG1Y7btw2cE4c800"; // 14-day free trial (new customers)
+  var STRIPE_SUBSCRIBE_LINK = "https://buy.stripe.com/5kQ28qfJ0dGP558aJa4c801"; // no trial, card + £49/month (returning customers)
   var MASTER_PASSKEY = "CAP50"; // admin/support override — keep private, not for customers
   var CHECK_ACCESS_URL = "/.netlify/functions/check-access";
   var SESSION_EMAIL_URL = "/.netlify/functions/get-session-email";
@@ -750,7 +751,7 @@
     lockMsgEl.textContent = opts.message;
     if (opts.showActivate) {
       lockActivateBtnEl.style.display = 'inline-block';
-      lockActivateBtnEl.href = STRIPE_PAYMENT_LINK;
+      lockActivateBtnEl.href = opts.paid ? STRIPE_SUBSCRIBE_LINK : STRIPE_PAYMENT_LINK;
     } else {
       lockActivateBtnEl.style.display = 'none';
     }
@@ -820,7 +821,8 @@
           showLock({
             title: 'Subscription Inactive',
             message: 'Your CareAuditPro subscription is not currently active (status: ' + data.status + '). Renew below to regain access.',
-            showActivate: true
+            showActivate: true,
+            paid: true
           });
         } else if (data.reason === 'not_found') {
           showLock({
@@ -1322,7 +1324,8 @@
             showLock({
               title: 'Access Expired',
               message: "We couldn't confirm an active trial or subscription for " + cachedAccess.email + ". Please check your email below or renew your access.",
-              showActivate: true
+              showActivate: true,
+              paid: true
             });
           }
         })
